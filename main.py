@@ -72,13 +72,24 @@ def create_student(student: Student):
     return student_dict(row)
 
 
+
 @app.get("/students")
-def get_students():
+def get_students(name: Optional[str] = None):
     with get_connection() as connection:
-        rows = connection.execute(
-            "SELECT * FROM students ORDER BY student_id"
-        ).fetchall()
+        if name:
+            rows = connection.execute(
+                """SELECT * FROM students
+                   WHERE name LIKE ?
+                   ORDER BY student_id""",
+                (f"%{name}%",),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                "SELECT * FROM students ORDER BY student_id"
+            ).fetchall()
+
     return [student_dict(row) for row in rows]
+
 
 
 @app.get("/students/{student_id}")
