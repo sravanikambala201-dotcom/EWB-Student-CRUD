@@ -18,14 +18,14 @@ A Python backend application to manage student records using FastAPI and SQLite.
 - Validate input and handle missing student records
 
 ## Installation
-Create a virtual environment:
+Create and activate a virtual environment:
 
 ```powershell
 py -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
-Install the dependencies:
+Install dependencies:
 
 ```powershell
 python -m pip install -r requirements.txt
