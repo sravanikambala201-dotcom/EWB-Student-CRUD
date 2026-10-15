@@ -1,11 +1,17 @@
 
 import sqlite3
+import re
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, EmailStr, model_validator
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    model_validator,
+    field_validator,
+)
 
 app = FastAPI(title="Student Database CRUD API")
 
@@ -40,6 +46,25 @@ class Student(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Student name cannot be empty")
+        return value
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value):
+        if value is not None:
+            value = value.strip()
+            if not value:
+                return None
+            if not re.fullmatch(r"[0-9+\-() ]{7,20}", value):
+                raise ValueError("Enter a valid phone number")
+        return value
+
     @model_validator(mode="after")
     def check_contact(self):
         if not self.email and not self.phone:
@@ -66,22 +91,22 @@ def create_student(student: Student):
         )
         student_id = cursor.lastrowid
         row = connection.execute(
-            "SELECT * FROM students WHERE student_id = ?", (student_id,)
+            "SELECT * FROM students WHERE student_id = ?",
+            (student_id,),
         ).fetchone()
 
     return student_dict(row)
 
 
-
 @app.get("/students")
 def get_students(name: Optional[str] = None):
     with get_connection() as connection:
-        if name:
+        if name and name.strip():
             rows = connection.execute(
                 """SELECT * FROM students
                    WHERE name LIKE ?
                    ORDER BY student_id""",
-                (f"%{name}%",),
+                (f"%{name.strip()}%",),
             ).fetchall()
         else:
             rows = connection.execute(
@@ -91,16 +116,19 @@ def get_students(name: Optional[str] = None):
     return [student_dict(row) for row in rows]
 
 
-
 @app.get("/students/{student_id}")
 def get_student(student_id: int):
     with get_connection() as connection:
         row = connection.execute(
-            "SELECT * FROM students WHERE student_id = ?", (student_id,)
+            "SELECT * FROM students WHERE student_id = ?",
+            (student_id,),
         ).fetchone()
 
     if row is None:
-        raise HTTPException(status_code=404, detail="Student not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found",
+        )
 
     return student_dict(row)
 
@@ -109,11 +137,15 @@ def get_student(student_id: int):
 def update_student(student_id: int, student: Student):
     with get_connection() as connection:
         existing = connection.execute(
-            "SELECT * FROM students WHERE student_id = ?", (student_id,)
+            "SELECT * FROM students WHERE student_id = ?",
+            (student_id,),
         ).fetchone()
 
         if existing is None:
-            raise HTTPException(status_code=404, detail="Student not found")
+            raise HTTPException(
+                status_code=404,
+                detail="Student not found",
+            )
 
         connection.execute(
             """UPDATE students
@@ -129,7 +161,8 @@ def update_student(student_id: int, student: Student):
         )
 
         row = connection.execute(
-            "SELECT * FROM students WHERE student_id = ?", (student_id,)
+            "SELECT * FROM students WHERE student_id = ?",
+            (student_id,),
         ).fetchone()
 
     return student_dict(row)
@@ -139,10 +172,14 @@ def update_student(student_id: int, student: Student):
 def delete_student(student_id: int):
     with get_connection() as connection:
         cursor = connection.execute(
-            "DELETE FROM students WHERE student_id = ?", (student_id,)
+            "DELETE FROM students WHERE student_id = ?",
+            (student_id,),
         )
 
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Student not found")
+            raise HTTPException(
+                status_code=404,
+                detail="Student not found",
+            )
 
     return {"message": "Student deleted successfully"}
